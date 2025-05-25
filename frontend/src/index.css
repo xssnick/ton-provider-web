@@ -485,3 +485,10 @@ a:hover {
     font-size: 0.97rem;
     color: #888;
 }
+
+.files-text {
+    text-align: center;
+    margin-top: 20px;
+    font-size: 24px;
+    color: #888;
+}

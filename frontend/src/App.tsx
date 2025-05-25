@@ -85,6 +85,7 @@ const WelcomeScreen: React.FC = () => (
 
 const App: React.FC = () => {
     const [tonConnectUI] = useTonConnectUI();
+    const [loadingCompleted, setLoadingCompleted] = useState(false);
     const [files, setFilesRaw] = useState<FileData[]>([]);
     const [deployingFiles, setDeployingFiles] = useState<string[]>([]);
     const [drag, setDrag] = useState(false);
@@ -104,6 +105,7 @@ const App: React.FC = () => {
 
     const wallet = useTonWallet();
 
+    const uploadCancelRef = useRef<() => void>(() => {});
 
     const handleDeployConfirm = async (amount: string, id: string) => {
         setDeployingFiles((prev) => prev.includes(id) ? prev : [...prev, id]);
@@ -178,8 +180,10 @@ const App: React.FC = () => {
 
     // Загрузка файлов
     const fetchFiles = async (): Promise<FileData[]> => {
-
         let fetched = await fetchUserFiles();
+        if (!loadingCompleted) {
+            setLoadingCompleted(true);
+        }
         return fetched.map((f: any) => ({
             id: f.file_name,
             name: f.file_name,
@@ -220,7 +224,7 @@ const App: React.FC = () => {
         if (wallet) {
             updateFilesList();
         }
-    }, [now]);
+    }, [now, wallet]);
 
     useEffect(() => {
         const tid = setInterval(() => setNow(Date.now()), 1000);
@@ -335,7 +339,7 @@ const App: React.FC = () => {
             {showModal && selectedFile && (
                 <FileUploadModal
                     file={selectedFile}
-                    onCancel={() => { setShowModal(false); setSelectedFile(null); }}
+                    onCancel={() => { uploadCancelRef.current(); setShowModal(false); setSelectedFile(null);  }}
                     onUploaded={async () => {
                         setShowModal(false);
                         setSelectedFile(null);
@@ -346,7 +350,10 @@ const App: React.FC = () => {
                             alert("File is too big. Max size is "+(providerMaxSize/1024)+" KB");
                             return;
                         }
-                        await uploadFileWithProgress(file, onProgress);
+
+                        const { promise, cancel } = uploadFileWithProgress(file, onProgress);
+                        uploadCancelRef.current = cancel;
+                        await promise;
                     }}
                 />
             )}
@@ -377,24 +384,32 @@ const App: React.FC = () => {
                 /> : null}
 
 
-            <div className="files-grid">
                 {files.length === 0 ? (
-                    <p />
+                    loadingCompleted ? (
+                        <div className="files-text">
+                            <p>No files yet</p>
+                        </div>
+                    ) : (
+                        <div className="files-text">
+                            <p>Loading...</p>
+                        </div>
+                    )
                 ) : (
-                    files.map((file) => (
-                        <FileTile
-                            key={file.id}
-                            file={file}
-                            now={now}
-                            getFileIcon={getFileIcon}
-                            handleDeploy={handleDeploy}
-                            handleDelete={handleDelete}
-                            handleWithdraw={handleWithdraw}
-                            handleTopup={handleTopupStart}
-                        />
-                    ))
+                    <div className="files-grid">
+                        {files.map((file) => (
+                            <FileTile
+                                key={file.id}
+                                file={file}
+                                now={now}
+                                getFileIcon={getFileIcon}
+                                handleDeploy={handleDeploy}
+                                handleDelete={handleDelete}
+                                handleWithdraw={handleWithdraw}
+                                handleTopup={handleTopupStart}
+                            />
+                        ))}
+                    </div>
                 )}
-            </div>
         </div>
     );
 };
@@ -437,15 +452,17 @@ async function fetchUserFiles(): Promise<any[]> {
     return response.json();
 }
 
-export async function uploadFileWithProgress(
+export function uploadFileWithProgress(
     file: File,
     onProgress: (percent: number) => void
-): Promise<void> {
-    return new Promise<void>((resolve, reject) => {
+): { promise: Promise<void>, cancel: () => void } {
+    let xhr: XMLHttpRequest;
+
+    const promise = new Promise<void>((resolve, reject) => {
         const formData = new FormData();
         formData.append("file", file);
 
-        const xhr = new XMLHttpRequest();
+        xhr = new XMLHttpRequest();
         xhr.open("POST", "/api/v1/upload");
 
         xhr.upload.onprogress = (event) => {
@@ -471,9 +488,20 @@ export async function uploadFileWithProgress(
             reject(new Error("Network error"));
         };
 
+        xhr.onabort = () => {
+            reject(null);
+        };
+
         xhr.send(formData);
     });
+
+    const cancel = () => {
+        if (xhr) xhr.abort();
+    };
+
+    return { promise, cancel };
 }
+
 
 async function removeFile(fileName: string): Promise<void> {
     const response = await fetch(`/api/v1/remove?fileName=${encodeURIComponent(fileName)}`, {

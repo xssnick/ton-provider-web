@@ -84,7 +84,9 @@ export const FileUploadModal: React.FC<FileUploadModalProps> = ({
                 setProgress(0);
                 onUploaded();
             } catch (e) {
-                alert("Upload failed: " + e);
+                if (e !== null) {
+                    alert("Upload failed: " + e);
+                }
                 onCancel();
             }
         })()
@@ -104,6 +106,11 @@ export const FileUploadModal: React.FC<FileUploadModalProps> = ({
                             <div className="progress-bar" style={{ width: `${progress}%` }}/>
                         </div>
                     </div>
+                <div className="modal-actions" style={{ marginTop: 28 }}>
+                    <button className="modal-btn-cancel" onClick={onCancel}>
+                        Cancel
+                    </button>
+                </div>
             </div>
         </div>
     );
