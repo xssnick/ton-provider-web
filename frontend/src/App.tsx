@@ -91,6 +91,7 @@ const App: React.FC = () => {
     const [now, setNow] = useState(Date.now());
     const inputRef = useRef<HTMLInputElement>(null);
     const [providerId, setProviderId] = useState("");
+    const [providerMaxSize, setProviderMaxSize] = useState(0);
 
     const [showModal, setShowModal] = useState(false);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -136,7 +137,9 @@ const App: React.FC = () => {
 
     useEffect(() => {
         (async () => {
-            setProviderId(await getProviderId());
+            let info = await getProviderInfo();
+            setProviderId(info.id);
+            setProviderMaxSize(info.size);
         })()
     }, []);
 
@@ -339,6 +342,10 @@ const App: React.FC = () => {
                         await updateFilesList();
                     }}
                     uploadFile={async (file, onProgress) => {
+                        if (file.size > providerMaxSize) {
+                            alert("File is too big. Max size is "+(providerMaxSize/1024)+" KB");
+                            return;
+                        }
                         await uploadFileWithProgress(file, onProgress);
                     }}
                 />
@@ -515,7 +522,7 @@ async function getTopupParams(fileName: string): Promise<any> {
     return response.json();
 }
 
-async function getProviderId(): Promise<string> {
+async function getProviderInfo(): Promise<any> {
     const response = await fetch(`/api/v1/provider`, {
         method: "GET",
         headers: {"Content-Type": "application/json"},
@@ -524,7 +531,7 @@ async function getProviderId(): Promise<string> {
     if (!response.ok) {
         throw new Error(`Failed get provider data: ${response.status} ${response.statusText}`);
     }
-    return (await response.json()).id;
+    return response.json();
 }
 
 

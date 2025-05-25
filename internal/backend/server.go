@@ -333,7 +333,7 @@ func (s *Server) getProviderIdHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Return the sign data as JSON response
-	response := map[string]string{"id": strings.ToUpper(hex.EncodeToString(s.svc.providerKey))}
+	response := map[string]any{"id": strings.ToUpper(hex.EncodeToString(s.svc.providerKey)), "size": s.maxFileSz}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(response); err != nil {
