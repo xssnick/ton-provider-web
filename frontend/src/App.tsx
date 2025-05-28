@@ -44,6 +44,7 @@ const Header: React.FC<{ tonConnectUI: any, num: number, provider: string, }> = 
             <div>
                 <h1>TON Provider Web</h1>
                 <div className="provider-id">{provider ? "ID: "+provider : "Loading provider..."}</div>
+                <div className="disclamer">DISCLAIMER: This is testing demo, file storage and safety is not guaranteed, no coins refund!</div>
             </div>
             <div className="user-info">
                 {wallet && (
@@ -196,6 +197,7 @@ const App: React.FC = () => {
             expiryAt: f.expire_at ? new Date(f.expire_at).getTime() : null,
             bagId: f.bag_id,
             pricePerDay: f.price_per_day,
+            timeLeft: f.time_left,
         }));
     };
 

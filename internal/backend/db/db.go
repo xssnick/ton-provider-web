@@ -48,6 +48,7 @@ type ProviderInfo struct {
 	PerDay      string
 	Status      string
 	Reason      string
+	Left        string
 	LastUpdated time.Time
 	ErrorSince  *time.Time
 }

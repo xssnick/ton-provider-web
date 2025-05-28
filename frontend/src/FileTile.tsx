@@ -13,6 +13,7 @@ export interface FileData {
     expiryAt: number | null;
     bagId: string | null;
     pricePerDay: string | null;
+    timeLeft: string | null;
 }
 
 type FileTileProps = {
@@ -165,6 +166,7 @@ const StatusStored: React.FC<StatusStoredProps> = ({ file, onCopyBagId, handleWi
         </div>
         <div className="file-tile__balance">{file.balanceTon || "—"} TON</div>
         <div className="file-tile__price-per-day">{file.pricePerDay} TON / day</div>
+        <div className="file-tile__time-left">Time left: {file.timeLeft}</div>
         <div className="file-tile__bagid">
             <span title={file.bagId ?? ""}>{file.bagId?.slice(0, 14) || "—"}…</span>
             <button onClick={onCopyBagId}>

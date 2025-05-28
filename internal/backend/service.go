@@ -68,6 +68,7 @@ type UserFileInfo struct {
 	ProviderReason  string `json:"provider_reason"`
 	ContractBalance string `json:"contract_balance"`
 	ContractAddr    string `json:"contract_addr"`
+	TimeLeft        string `json:"time_left"`
 }
 
 func (s *Service) ListFilesByUser(userAddr string) ([]UserFileInfo, error) {
@@ -109,6 +110,7 @@ func (s *Service) ListFilesByUser(userAddr string) ([]UserFileInfo, error) {
 			userFile.ProviderReason = file.Provider.Reason
 			userFile.ContractBalance = file.Provider.Balance
 			userFile.PricePerDay = file.Provider.PerDay
+			userFile.TimeLeft = file.Provider.Left
 		}
 		userFiles = append(userFiles, userFile)
 		fileKeys = append(fileKeys, file.FilePath)
@@ -188,6 +190,10 @@ func (s *Service) GetDeployData(ctx context.Context, userAddr, fileName string) 
 	fi, err := s.db.GetFile(userAddr, fileName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get file info: %w", err)
+	}
+
+	if fi == nil {
+		return nil, fmt.Errorf("file not found")
 	}
 
 	if fi.State != db.FileStateBag {
@@ -437,7 +443,7 @@ func (s *Service) doUpdate() {
 			}
 
 			ctx, cancel := context.WithTimeout(context.Background(), 7*time.Second)
-			balance, toProof, perDay, err := s.fetchContractInfo(ctx, fi.Bag, address.MustParseAddr(fi.OwnerAddr), s.providerKey)
+			balance, toProof, perDay, left, err := s.fetchContractInfo(ctx, fi.Bag, address.MustParseAddr(fi.OwnerAddr), s.providerKey)
 			cancel()
 			if err != nil {
 				if errors.Is(err, contract.ErrProviderNotFound) || errors.Is(err, contract.ErrNotDeployed) {
@@ -490,7 +496,12 @@ func (s *Service) doUpdate() {
 					}
 				}
 
-				s.logger.Warn().Str("key", res.Key).Str("reason", info.Reason).Msg("provider error")
+				snc := time.Now()
+				if errorSince != nil {
+					snc = *errorSince
+				}
+
+				s.logger.Warn().Str("key", res.Key).Str("for", time.Since(snc).String()).Str("reason", info.Reason).Msg("provider error")
 			}
 
 			nextAt = time.Now().Add(time.Minute * 5)
@@ -503,6 +514,7 @@ func (s *Service) doUpdate() {
 				Reason:      info.Reason,
 				LastUpdated: time.Now(),
 				ErrorSince:  errorSince,
+				Left:        left,
 			}
 		}()
 	}

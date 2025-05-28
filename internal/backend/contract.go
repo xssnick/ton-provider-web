@@ -11,6 +11,7 @@ import (
 	"github.com/xssnick/tonutils-storage-provider/pkg/contract"
 	"github.com/xssnick/tonutils-storage/provider"
 	"math/big"
+	"time"
 )
 
 func (s *Service) getContractWithdrawData(bag *db.Bag, owner *address.Address) (*address.Address, *cell.Cell, error) {
@@ -60,23 +61,23 @@ func (s *Service) calcContractAddr(bag *db.Bag, owner *address.Address) (*addres
 	return addr, nil
 }
 
-func (s *Service) fetchContractInfo(ctx context.Context, bag *db.Bag, owner *address.Address, providerKey []byte) (tlb.Coins, uint64, tlb.Coins, error) {
+func (s *Service) fetchContractInfo(ctx context.Context, bag *db.Bag, owner *address.Address, providerKey []byte) (tlb.Coins, uint64, tlb.Coins, string, error) {
 	addr, _, _, err := contract.PrepareV1DeployData(bag.RootHash, bag.MerkleHash, bag.FullSize, bag.PieceSize, owner, nil)
 	if err != nil {
-		return tlb.ZeroCoins, 0, tlb.ZeroCoins, fmt.Errorf("failed to calc contract addr: %w", err)
+		return tlb.ZeroCoins, 0, tlb.ZeroCoins, "", fmt.Errorf("failed to calc contract addr: %w", err)
 	}
 
 	master, err := s.api.CurrentMasterchainInfo(ctx)
 	if err != nil {
-		return tlb.ZeroCoins, 0, tlb.ZeroCoins, fmt.Errorf("failed to fetch master block: %w", err)
+		return tlb.ZeroCoins, 0, tlb.ZeroCoins, "", fmt.Errorf("failed to fetch master block: %w", err)
 	}
 
 	data, balance, err := contract.GetProviderDataV1(ctx, s.api, master, addr, providerKey)
 	if err != nil {
 		if errors.Is(err, contract.ErrNotDeployed) {
-			return tlb.ZeroCoins, 0, tlb.ZeroCoins, contract.ErrNotDeployed
+			return tlb.ZeroCoins, 0, tlb.ZeroCoins, "", contract.ErrNotDeployed
 		}
-		return tlb.ZeroCoins, 0, tlb.ZeroCoins, fmt.Errorf("failed to fetch providers list: %w", err)
+		return tlb.ZeroCoins, 0, tlb.ZeroCoins, "", fmt.Errorf("failed to fetch providers list: %w", err)
 	}
 
 	szMB := new(big.Float).Quo(
@@ -85,6 +86,43 @@ func (s *Service) fetchContractInfo(ctx context.Context, bag *db.Bag, owner *add
 	)
 
 	pricePerDay, _ := new(big.Float).Mul(szMB, new(big.Float).SetInt(data.RatePerMB.Nano())).Int(nil)
+	/*daysInProof := new(big.Float).Quo(new(big.Float).SetUint64(uint64(data.MaxSpan)), new(big.Float).SetUint64(86400))
+	proofsLeft := new(big.Int).Div(balance.Nano(), pricePerDay).Int64()
 
-	return balance, data.ByteToProof, tlb.FromNanoTON(pricePerDay), nil
+	ago := uint32(time.Since(data.LastProofAt).Seconds())
+	if ago < data.MaxSpan {
+		daysLeft += int64(data.MaxSpan/86400) - int64(ago/86400)
+	}*/
+
+	days := daysLeft(balance.Nano(), data.RatePerMB.Nano(), szMB, data.MaxSpan, data.LastProofAt)
+
+	return balance, data.ByteToProof, tlb.FromNanoTON(pricePerDay), days, nil
+}
+
+func daysLeft(
+	balance *big.Int,
+	ratePerMB *big.Int,
+	szMB *big.Float,
+	maxSpan uint32,
+	lastProofAt time.Time,
+) string {
+	pricePerSpanFloat := new(big.Float).Mul(szMB, new(big.Float).SetInt(ratePerMB))
+	pricePerSpan, _ := pricePerSpanFloat.Int(nil)
+	if pricePerSpan.Sign() == 0 {
+		return "Expired"
+	}
+
+	// Сколько интервалов можно оплатить из оставшегося баланса
+	spansLeft := new(big.Int).Div(balance, pricePerSpan).Int64()
+
+	// Сколько секунд осталось в текущем периоде
+	ago := uint32(time.Since(lastProofAt).Seconds())
+	leftInCurrentSpan := int64(0)
+	if ago < maxSpan {
+		leftInCurrentSpan = int64(maxSpan - ago)
+	}
+
+	totalSecondsLeft := leftInCurrentSpan + spansLeft*int64(maxSpan)
+
+	return fmt.Sprintf("%d Days %d Hours", totalSecondsLeft/86400, (totalSecondsLeft%86400)/3600)
 }
