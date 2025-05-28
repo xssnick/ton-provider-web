@@ -177,11 +177,11 @@ export const DeployModal: React.FC<DeployModalProps> = ({
     return (
         <div className="modal-overlay">
             <div className="modal">
-                <h2>Deploy bag</h2>
+                <h2>Deploy bag contract</h2>
                 
                 <p><b>Storage price per day:</b> {filePriceInfo.pricePerDay} TON</p>
-                <p><b>Price per proof:</b> {filePriceInfo.pricePerProof} TON</p>
-                <p><b>Proof will be given every:</b> {filePriceInfo.proofPeriodEvery}</p>
+                <p><b>Price per reward:</b> {filePriceInfo.pricePerProof} TON</p>
+                <p><b>Provider will be rewarded every:</b> {filePriceInfo.proofPeriodEvery}</p>
                 <p><br/><b>Min amount is 0.09 TON</b></p>
 
                 <label style={{ marginTop: 18, marginBottom: 6, display: "block", fontWeight: 500 }}>
@@ -204,6 +204,8 @@ export const DeployModal: React.FC<DeployModalProps> = ({
                         }}
                     />
                 </label>
+                <p><b>Enough for:</b> {Math.floor(parseFloat(amount)/parseFloat(filePriceInfo.pricePerProof))} Rewards</p>
+
 
                 <div className="modal-actions" style={{ marginTop: 28 }}>
                     <button

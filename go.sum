@@ -101,8 +101,8 @@ github.com/xssnick/raptorq v1.0.0 h1:l77lntIV/W/SV9rZjF4wRpIhikQm8nBHtB3h+qiu2cM
 github.com/xssnick/raptorq v1.0.0/go.mod h1:kgEVVsZv2hP+IeV7C7985KIFsDdvYq2ARW234SBA9Q4=
 github.com/xssnick/tonutils-go v1.13.1-0.20250525084236-cddb8cda4f54 h1:LHqx+z4TdTDEQdkYrK2IT4YQSjGq9pF9X7tjmetj2Lg=
 github.com/xssnick/tonutils-go v1.13.1-0.20250525084236-cddb8cda4f54/go.mod h1:EDe/9D/HZpAenbR+WPMQHICOF0BZWAe01TU5+Vpg08k=
-github.com/xssnick/tonutils-storage v1.0.4 h1:WkiRjTjF64bfxOVQ4zd1f+eq9IN2wBbX8dcgpk1diBA=
-github.com/xssnick/tonutils-storage v1.0.4/go.mod h1:52sQcLIiTPhbCR7NIp2Cuqll0Tohip4mMMf7Z7Gj62I=
+github.com/xssnick/tonutils-storage v1.0.5 h1:WeJpvXQ15/sWOJYOFOmD7UwEc5u1D1zCI7s/OToa28k=
+github.com/xssnick/tonutils-storage v1.0.5/go.mod h1:K72BswLMjDqU2SSv8SiOWwawGRAB/DqJYFmqafovFyU=
 github.com/xssnick/tonutils-storage-provider v0.3.6 h1:ciYicZNb3Bynav9Ew+AKBkcMSDTZr+1ffbkFCuhor48=
 github.com/xssnick/tonutils-storage-provider v0.3.6/go.mod h1:uheEbAIomxxoqDwdlUH7JxegzPKRZYBlgniBr+kGA+E=
 github.com/yuin/goldmark v1.4.13/go.mod h1:6yULJ656Px+3vBD8DxQVa3kxgyrAnzto9xy5taEt/CY=
