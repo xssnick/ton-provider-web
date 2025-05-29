@@ -86,13 +86,6 @@ func (s *Service) fetchContractInfo(ctx context.Context, bag *db.Bag, owner *add
 	)
 
 	pricePerDay, _ := new(big.Float).Mul(szMB, new(big.Float).SetInt(data.RatePerMB.Nano())).Int(nil)
-	/*daysInProof := new(big.Float).Quo(new(big.Float).SetUint64(uint64(data.MaxSpan)), new(big.Float).SetUint64(86400))
-	proofsLeft := new(big.Int).Div(balance.Nano(), pricePerDay).Int64()
-
-	ago := uint32(time.Since(data.LastProofAt).Seconds())
-	if ago < data.MaxSpan {
-		daysLeft += int64(data.MaxSpan/86400) - int64(ago/86400)
-	}*/
 
 	days := daysLeft(balance.Nano(), data.RatePerMB.Nano(), szMB, data.MaxSpan, data.LastProofAt)
 
@@ -101,21 +94,26 @@ func (s *Service) fetchContractInfo(ctx context.Context, bag *db.Bag, owner *add
 
 func daysLeft(
 	balance *big.Int,
-	ratePerMB *big.Int,
+	ratePerMBDay *big.Int,
 	szMB *big.Float,
 	maxSpan uint32,
 	lastProofAt time.Time,
 ) string {
-	pricePerSpanFloat := new(big.Float).Mul(szMB, new(big.Float).SetInt(ratePerMB))
+	spanDays := new(big.Float).Quo(
+		new(big.Float).SetUint64(uint64(maxSpan)),
+		new(big.Float).SetFloat64(86400),
+	)
+
+	pricePerSpanFloat := new(big.Float).Mul(szMB, new(big.Float).SetInt(ratePerMBDay))
+	pricePerSpanFloat.Mul(pricePerSpanFloat, spanDays)
+
 	pricePerSpan, _ := pricePerSpanFloat.Int(nil)
 	if pricePerSpan.Sign() == 0 {
 		return "Expired"
 	}
 
-	// Сколько интервалов можно оплатить из оставшегося баланса
 	spansLeft := new(big.Int).Div(balance, pricePerSpan).Int64()
 
-	// Сколько секунд осталось в текущем периоде
 	ago := uint32(time.Since(lastProofAt).Seconds())
 	leftInCurrentSpan := int64(0)
 	if ago < maxSpan {
@@ -124,5 +122,8 @@ func daysLeft(
 
 	totalSecondsLeft := leftInCurrentSpan + spansLeft*int64(maxSpan)
 
-	return fmt.Sprintf("%d Days %d Hours", totalSecondsLeft/86400, (totalSecondsLeft%86400)/3600)
+	days := totalSecondsLeft / 86400
+	hours := (totalSecondsLeft % 86400) / 3600
+
+	return fmt.Sprintf("%d Days %d Hours", days, hours)
 }
