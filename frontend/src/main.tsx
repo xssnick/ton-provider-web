@@ -6,7 +6,7 @@ import {THEME, TonConnectUIProvider} from "@tonconnect/ui-react";
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-      <TonConnectUIProvider uiPreferences={{ theme: THEME.LIGHT }} manifestUrl="https://bags.tonutils.com/tonconnect-mf.json">
+      <TonConnectUIProvider uiPreferences={{ theme: THEME.LIGHT }} manifestUrl="https://bags.tonutils.com/tonconnect-mf2.json">
         <App />
       </TonConnectUIProvider>
   </StrictMode>

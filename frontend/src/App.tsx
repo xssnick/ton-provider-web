@@ -84,6 +84,10 @@ const WelcomeScreen: React.FC = () => (
     </div>
 );
 
+const LoaderScreen: React.FC = () => (
+    <h2>Loading...</h2>
+);
+
 const App: React.FC = () => {
     const [tonConnectUI] = useTonConnectUI();
     const [loadingCompleted, setLoadingCompleted] = useState(false);
@@ -96,6 +100,7 @@ const App: React.FC = () => {
     const [providerMaxSize, setProviderMaxSize] = useState(0);
 
     const [showModal, setShowModal] = useState(false);
+    const [loaded, setLoaded] = useState(false);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
     const [deployModalVisible, setDeployModalVisible] = useState(false);
@@ -148,6 +153,8 @@ const App: React.FC = () => {
 
     useEffect(() => {
         tonConnectUI.onStatusChange(async (w: any) => {
+            setLoaded(true);
+
             if (!w) return;
             if (w.connectItems?.tonProof && "proof" in w.connectItems.tonProof) {
                 try {
@@ -324,6 +331,15 @@ const App: React.FC = () => {
         if (/txt|md|json|csv|log|ini|xml|yml|yaml|cfg/.test(ext)) return FileText;
         return FileIcon;
     };
+
+    if (!loaded) {
+        return (
+            <div className="app">
+                <Header tonConnectUI={tonConnectUI} num={files.length} provider={providerId} />
+                <LoaderScreen />
+            </div>
+        );
+    }
 
     if (!wallet) {
         return (

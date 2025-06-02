@@ -4,6 +4,7 @@ go 1.24
 
 require (
 	github.com/rs/zerolog v1.34.0
+	github.com/sethvargo/go-limiter v1.0.0
 	github.com/syndtr/goleveldb v1.0.0
 	github.com/xssnick/tonutils-go v1.13.1-0.20250525084236-cddb8cda4f54
 	github.com/xssnick/tonutils-storage v1.0.5
@@ -18,6 +19,7 @@ require (
 	github.com/golang/snappy v1.0.0 // indirect
 	github.com/gookit/color v1.5.4 // indirect
 	github.com/kevinms/leakybucket-go v0.0.0-20200115003610-082473db97ca // indirect
+	github.com/klauspost/cpuid/v2 v2.2.10 // indirect
 	github.com/lithammer/fuzzysearch v1.1.8 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect

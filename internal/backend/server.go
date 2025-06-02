@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/rs/zerolog"
+	"github.com/sethvargo/go-limiter"
+	"github.com/sethvargo/go-limiter/memorystore"
 	"github.com/xssnick/tonutils-go/address"
 	"github.com/xssnick/tonutils-go/ton/wallet"
 	"net/http"
@@ -22,7 +24,7 @@ type Server struct {
 	prf       *wallet.TonConnectVerifier
 }
 
-func Listen(key ed25519.PrivateKey, addr string, maxFileSz uint64, svc *Service, prf *wallet.TonConnectVerifier, logger zerolog.Logger) {
+func Listen(key ed25519.PrivateKey, addr string, maxFileSz uint64, svc *Service, prf *wallet.TonConnectVerifier, logger zerolog.Logger) error {
 	s := &Server{
 		key:       key,
 		logger:    logger,
@@ -31,21 +33,30 @@ func Listen(key ed25519.PrivateKey, addr string, maxFileSz uint64, svc *Service,
 		prf:       prf,
 	}
 
+	rateLimit, err := memorystore.New(&memorystore.Config{
+		Tokens:   20,
+		Interval: 5 * time.Second,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create memory store: %w", err)
+	}
+
 	http.HandleFunc("/api/v1/login/data", s.getSignDataHandler)
 	http.HandleFunc("/api/v1/provider", s.getProviderIdHandler)
-	http.HandleFunc("/api/v1/login", s.loginHandler)
+	http.HandleFunc("/api/v1/login", s.rateLimitHandler(s.loginHandler, rateLimit))
 
-	http.HandleFunc("/api/v1/upload", s.authHandler(s.uploadHandler))
-	http.HandleFunc("/api/v1/list", s.authHandler(s.listHandler))
-	http.HandleFunc("/api/v1/deploy", s.authHandler(s.getDeployDataHandler))
-	http.HandleFunc("/api/v1/withdraw", s.authHandler(s.getWithdrawDataHandler))
-	http.HandleFunc("/api/v1/topup", s.authHandler(s.getTopupDataHandler))
-	http.HandleFunc("/api/v1/remove", s.authHandler(s.removeHandler))
+	http.HandleFunc("/api/v1/upload", s.rateLimitHandler(s.authHandler(s.uploadHandler), rateLimit))
+	http.HandleFunc("/api/v1/list", s.rateLimitHandler(s.authHandler(s.listHandler), rateLimit))
+	http.HandleFunc("/api/v1/deploy", s.rateLimitHandler(s.authHandler(s.getDeployDataHandler), rateLimit))
+	http.HandleFunc("/api/v1/withdraw", s.rateLimitHandler(s.authHandler(s.getWithdrawDataHandler), rateLimit))
+	http.HandleFunc("/api/v1/topup", s.rateLimitHandler(s.authHandler(s.getTopupDataHandler), rateLimit))
+	http.HandleFunc("/api/v1/remove", s.rateLimitHandler(s.authHandler(s.removeHandler), rateLimit))
 
 	logger.Info().Str("addr", addr).Msg("server started")
-	if err := http.ListenAndServe(addr, nil); err != nil {
-		fmt.Println("Error starting server:", err)
+	if err = http.ListenAndServe(addr, nil); err != nil {
+		return err
 	}
+	return nil
 }
 
 func (s *Server) loginHandler(w http.ResponseWriter, r *http.Request) {
@@ -92,6 +103,24 @@ func (s *Server) loginHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]bool{"ok": true})
+}
+
+func (s *Server) rateLimitHandler(next func(http.ResponseWriter, *http.Request), store limiter.Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		key := r.RemoteAddr
+		_, _, _, ok, err := store.Take(r.Context(), key)
+		if err != nil {
+			http.Error(w, "Rate error", http.StatusForbidden)
+			return
+		}
+
+		if !ok {
+			http.Error(w, "Too many requests", http.StatusTooManyRequests)
+			return
+		}
+
+		next(w, r)
+	}
 }
 
 func (s *Server) authHandler(next func(http.ResponseWriter, *http.Request, *address.Address)) http.HandlerFunc {

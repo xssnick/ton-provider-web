@@ -5,10 +5,12 @@ import (
 	"crypto/ed25519"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"github.com/xssnick/ton-provider-web/internal/backend/storage"
 	"github.com/xssnick/tonutils-go/adnl"
 	"github.com/xssnick/tonutils-go/adnl/dht"
 	"github.com/xssnick/tonutils-storage-provider/pkg/transport"
+	"net/http"
 	"os"
 	"time"
 
@@ -128,7 +130,12 @@ func main() {
 	verifier := wallet.NewTonConnectVerifier(cfg.VerificationDomain, sessionDuration, api)
 
 	// Server initialization
-	go backend.Listen(ed25519.NewKeyFromSeed(cfg.PrivateKey), cfg.ServerAddr, cfg.MaxFileSize, service, verifier, logger)
+	go func() {
+		err = backend.Listen(ed25519.NewKeyFromSeed(cfg.PrivateKey), cfg.ServerAddr, cfg.MaxFileSize, service, verifier, logger)
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			logger.Fatal().Err(err).Msg("Failed to start server")
+		}
+	}()
 
 	// Service is running
 	logger.Info().Msg("Service initialized and server running")
