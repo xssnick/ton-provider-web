@@ -41,11 +41,19 @@ func Listen(key ed25519.PrivateKey, addr string, maxFileSz uint64, svc *Service,
 		return fmt.Errorf("failed to create memory store: %w", err)
 	}
 
+	rateLimitFiles, err := memorystore.New(&memorystore.Config{
+		Tokens:   500,
+		Interval: 1 * time.Hour,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create memory store files limit: %w", err)
+	}
+
 	http.HandleFunc("/api/v1/login/data", s.getSignDataHandler)
 	http.HandleFunc("/api/v1/provider", s.getProviderIdHandler)
 	http.HandleFunc("/api/v1/login", s.rateLimitHandler(s.loginHandler, rateLimit))
 
-	http.HandleFunc("/api/v1/upload", s.rateLimitHandler(s.authHandler(s.uploadHandler), rateLimit))
+	http.HandleFunc("/api/v1/upload", s.rateLimitHandler(s.authHandler(s.uploadHandler), rateLimitFiles))
 	http.HandleFunc("/api/v1/list", s.rateLimitHandler(s.authHandler(s.listHandler), rateLimit))
 	http.HandleFunc("/api/v1/deploy", s.rateLimitHandler(s.authHandler(s.getDeployDataHandler), rateLimit))
 	http.HandleFunc("/api/v1/withdraw", s.rateLimitHandler(s.authHandler(s.getWithdrawDataHandler), rateLimit))
@@ -107,7 +115,7 @@ func (s *Server) loginHandler(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) rateLimitHandler(next func(http.ResponseWriter, *http.Request), store limiter.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		key := r.RemoteAddr
+		key, _, _ := strings.Cut(r.RemoteAddr, ":")
 		_, _, _, ok, err := store.Take(r.Context(), key)
 		if err != nil {
 			http.Error(w, "Rate error", http.StatusForbidden)
