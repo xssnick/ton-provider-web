@@ -146,6 +146,7 @@ const App: React.FC = () => {
     useEffect(() => {
         (async () => {
             let info = await getProviderInfo();
+            setLoaded(true);
             setProviderId(info.id);
             setProviderMaxSize(info.size);
         })()
@@ -153,8 +154,6 @@ const App: React.FC = () => {
 
     useEffect(() => {
         tonConnectUI.onStatusChange(async (w: any) => {
-            setLoaded(true);
-
             if (!w) return;
             if (w.connectItems?.tonProof && "proof" in w.connectItems.tonProof) {
                 try {
