@@ -17,6 +17,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -241,13 +242,17 @@ func (s *Service) StoreFile(fileReader io.Reader, userAddr, fileName string) err
 		return err
 	}
 
+	cleanName := filepath.Base(filepath.Clean(fileName))
+	
 	// Validate the fileName to prevent vulnerabilities like directory traversal.
-	if filepath.Base(fileName) != fileName {
+	if cleanName == "." || cleanName == "" ||
+		strings.Contains(cleanName, "..") ||
+		strings.ContainsRune(cleanName, os.PathSeparator) {
 		return fmt.Errorf("invalid file name: %s", fileName)
 	}
 
 	// Define the full path for the file.
-	fullFilePath := filepath.Join(s.storageBaseDir, userAddr, fileName)
+	fullFilePath := filepath.Join(s.storageBaseDir, userAddr, cleanName)
 
 	files, err := s.db.GetFilesByUser(userAddr)
 	if err != nil {
@@ -279,7 +284,7 @@ func (s *Service) StoreFile(fileReader io.Reader, userAddr, fileName string) err
 
 	fileData := db.FileInfo{
 		OwnerAddr: userAddr,
-		FilePath:  fileName,
+		FilePath:  cleanName,
 		CreatedAt: time.Now(),
 		State:     db.FileStateNew,
 	}

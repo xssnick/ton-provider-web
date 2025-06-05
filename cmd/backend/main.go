@@ -131,7 +131,7 @@ func main() {
 
 	// Server initialization
 	go func() {
-		err = backend.Listen(ed25519.NewKeyFromSeed(cfg.PrivateKey), cfg.ServerAddr, cfg.MaxFileSize, service, verifier, logger)
+		err = backend.Listen(ed25519.NewKeyFromSeed(cfg.PrivateKey), cfg.ServerAddr, cfg.VerificationDomain, cfg.MaxFileSize, service, verifier, logger)
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			logger.Fatal().Err(err).Msg("Failed to start server")
 		}

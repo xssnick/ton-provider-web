@@ -6,7 +6,7 @@ require (
 	github.com/rs/zerolog v1.34.0
 	github.com/sethvargo/go-limiter v1.0.0
 	github.com/syndtr/goleveldb v1.0.0
-	github.com/xssnick/tonutils-go v1.13.1-0.20250525084236-cddb8cda4f54
+	github.com/xssnick/tonutils-go v1.13.1-0.20250605082331-4b1571056149
 	github.com/xssnick/tonutils-storage v1.0.5
 	github.com/xssnick/tonutils-storage-provider v0.3.6
 )

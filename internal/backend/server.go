@@ -11,6 +11,7 @@ import (
 	"github.com/xssnick/tonutils-go/address"
 	"github.com/xssnick/tonutils-go/ton/wallet"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -24,8 +25,9 @@ type Server struct {
 	prf       *wallet.TonConnectVerifier
 }
 
-func Listen(key ed25519.PrivateKey, addr string, maxFileSz uint64, svc *Service, prf *wallet.TonConnectVerifier, logger zerolog.Logger) error {
+func Listen(key ed25519.PrivateKey, addr, domain string, maxFileSz uint64, svc *Service, prf *wallet.TonConnectVerifier, logger zerolog.Logger) error {
 	s := &Server{
+		domain:    domain,
 		key:       key,
 		logger:    logger,
 		maxFileSz: maxFileSz,
@@ -51,14 +53,14 @@ func Listen(key ed25519.PrivateKey, addr string, maxFileSz uint64, svc *Service,
 
 	http.HandleFunc("/api/v1/login/data", s.getSignDataHandler)
 	http.HandleFunc("/api/v1/provider", s.getProviderIdHandler)
-	http.HandleFunc("/api/v1/login", s.rateLimitHandler(s.loginHandler, rateLimit))
+	http.HandleFunc("/api/v1/login", s.securityHandler(s.loginHandler, rateLimit))
 
-	http.HandleFunc("/api/v1/upload", s.rateLimitHandler(s.authHandler(s.uploadHandler), rateLimitFiles))
-	http.HandleFunc("/api/v1/list", s.rateLimitHandler(s.authHandler(s.listHandler), rateLimit))
-	http.HandleFunc("/api/v1/deploy", s.rateLimitHandler(s.authHandler(s.getDeployDataHandler), rateLimit))
-	http.HandleFunc("/api/v1/withdraw", s.rateLimitHandler(s.authHandler(s.getWithdrawDataHandler), rateLimit))
-	http.HandleFunc("/api/v1/topup", s.rateLimitHandler(s.authHandler(s.getTopupDataHandler), rateLimit))
-	http.HandleFunc("/api/v1/remove", s.rateLimitHandler(s.authHandler(s.removeHandler), rateLimit))
+	http.HandleFunc("/api/v1/upload", s.securityHandler(s.authHandler(s.uploadHandler), rateLimitFiles))
+	http.HandleFunc("/api/v1/list", s.securityHandler(s.authHandler(s.listHandler), rateLimit))
+	http.HandleFunc("/api/v1/deploy", s.securityHandler(s.authHandler(s.getDeployDataHandler), rateLimit))
+	http.HandleFunc("/api/v1/withdraw", s.securityHandler(s.authHandler(s.getWithdrawDataHandler), rateLimit))
+	http.HandleFunc("/api/v1/topup", s.securityHandler(s.authHandler(s.getTopupDataHandler), rateLimit))
+	http.HandleFunc("/api/v1/remove", s.securityHandler(s.authHandler(s.removeHandler), rateLimit))
 
 	logger.Info().Str("addr", addr).Msg("server started")
 	if err = http.ListenAndServe(addr, nil); err != nil {
@@ -104,19 +106,28 @@ func (s *Server) loginHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Create and set the session cookie
 	http.SetCookie(w, &http.Cookie{
-		Name:  "session",
-		Value: sessionID,
-		Path:  "/",
+		Name:     "session",
+		HttpOnly: true,
+		Value:    sessionID,
+		SameSite: http.SameSiteStrictMode,
 	})
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]bool{"ok": true})
 }
 
-func (s *Server) rateLimitHandler(next func(http.ResponseWriter, *http.Request), store limiter.Store) http.HandlerFunc {
+func (s *Server) securityHandler(next func(http.ResponseWriter, *http.Request), rateLimitStore limiter.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if origin := r.Header.Get("Origin"); origin != "" {
+			originURL, err := url.Parse(r.Header.Get("Origin"))
+			if err != nil || originURL.Hostname() != s.domain {
+				http.Error(w, "Origin is incorrect, expected is "+s.domain, http.StatusForbidden)
+				return
+			}
+		}
+
 		key, _, _ := strings.Cut(r.RemoteAddr, ":")
-		_, _, _, ok, err := store.Take(r.Context(), key)
+		_, _, _, ok, err := rateLimitStore.Take(r.Context(), key)
 		if err != nil {
 			http.Error(w, "Rate error", http.StatusForbidden)
 			return
