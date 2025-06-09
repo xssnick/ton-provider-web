@@ -48,7 +48,7 @@ export const UploadZone: React.FC<UploadZoneProps> = ({
             <UploadCloud size={40} color="#0098EA" />
             <p>
                 Drag & drop files here, or{" "}
-                <span className="btn" onClick={handleClick}>
+                <span className="btn">
           browse
         </span>{" "}
                 to upload.
@@ -253,7 +253,7 @@ export const TopupModal: React.FC<TopupModalProps> = ({
                 <p><b>Address:</b> {file.address}</p>
                 <br/>
                 <p>You could also scan QR and topup contract from any wallet</p>
-                
+
                 <div style={{ margin: "16px 0", display: "flex", justifyContent: "center" }}>
                     <QRCode value={"ton://transfer/"+file.address+"?amount="+toNano(amount)} size={140} />
                 </div>
