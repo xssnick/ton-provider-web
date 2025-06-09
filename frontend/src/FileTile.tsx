@@ -8,6 +8,7 @@ export interface FileData {
     status: string;
     providerStatus: string;
     providerStatusReason: string;
+    contractAddr: string | null;
     contractLink: string | null;
     balanceTon: string | null;
     expiryAt: number | null;
@@ -20,10 +21,10 @@ type FileTileProps = {
     file: FileData;
     now: number;
     getFileIcon: (name?: string) => React.ElementType;
-    handleDeploy: (id: string) => void;
-    handleDelete: (id: string) => void;
-    handleWithdraw: (id: string) => void;
-    handleTopup: (id: string) => void;
+    handleDeploy: () => void;
+    handleDelete: () => void;
+    handleWithdraw: () => void;
+    handleTopup: () => void;
 };
 
 export const FileTile: React.FC<FileTileProps> = ({
@@ -71,8 +72,8 @@ export const FileTile: React.FC<FileTileProps> = ({
                 <StatusWaiting
                     timerText={timerText}
                     processing={file.status === "processing" || file.status === "deploying"}
-                    onDeploy={() => handleDeploy(file.id)}
-                    onDelete={() => handleDelete(file.id)}
+                    onDeploy={() => handleDeploy()}
+                    onDelete={() => handleDelete()}
                 />
             ) : (
                 <StatusStored file={file} onCopyBagId={onCopyBagId} handleTopup={handleTopup} handleWithdraw={handleWithdraw}/>

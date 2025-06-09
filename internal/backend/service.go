@@ -242,8 +242,12 @@ func (s *Service) StoreFile(fileReader io.Reader, userAddr, fileName string) err
 		return err
 	}
 
+	if len(fileName) > 1000 {
+		return fmt.Errorf("file name too long")
+	}
+
 	cleanName := filepath.Base(filepath.Clean(fileName))
-	
+
 	// Validate the fileName to prevent vulnerabilities like directory traversal.
 	if cleanName == "." || cleanName == "" ||
 		strings.Contains(cleanName, "..") ||

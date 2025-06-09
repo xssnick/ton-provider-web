@@ -198,6 +198,7 @@ const App: React.FC = () => {
             status: f.status,
             providerStatus: f.provider_status,
             providerStatusReason: f.provider_reason,
+            contractAddr: f.contract_addr,
             contractLink: "https://tonscan.org/address/"+f.contract_addr,
             balanceTon: f.contract_balance,
             expiryAt: f.expire_at ? new Date(f.expire_at).getTime() : null,
@@ -289,10 +290,11 @@ const App: React.FC = () => {
         await tonConnectUI.sendTransaction(transaction);
     }
 
-    const handleTopupStart = async (id: string) => {
+    const handleTopupStart = async (id: string, addr: string) => {
         setTopupFile({
             id: id,
             name: id,
+            address: addr,
         });
         setTopupModalVisible(true);
     }
@@ -419,10 +421,10 @@ const App: React.FC = () => {
                                 file={file}
                                 now={now}
                                 getFileIcon={getFileIcon}
-                                handleDeploy={handleDeploy}
-                                handleDelete={handleDelete}
-                                handleWithdraw={handleWithdraw}
-                                handleTopup={handleTopupStart}
+                                handleDeploy={() => handleDeploy(file.id)}
+                                handleDelete={() => handleDelete(file.id)}
+                                handleWithdraw={() => handleWithdraw(file.id)}
+                                handleTopup={() => handleTopupStart(file.id, file.contractAddr!)}
                             />
                         ))}
                     </div>

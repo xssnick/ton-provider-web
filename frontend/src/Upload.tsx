@@ -1,5 +1,7 @@
 import React, {type DragEvent, useCallback, useEffect, useState} from "react";
 import {UploadCloud} from "lucide-react";
+import QRCode from "react-qr-code";
+import {toNano} from "ton";
 
 type UploadZoneProps = {
     drag: boolean;
@@ -233,6 +235,7 @@ interface TopupModalProps {
 export interface TopupFileInfo {
     id: string;
     name: string;
+    address: string;
 }
 
 export const TopupModal: React.FC<TopupModalProps> = ({
@@ -247,6 +250,13 @@ export const TopupModal: React.FC<TopupModalProps> = ({
             <div className="modal">
                 <h2>Topup contract</h2>
                 <p><b>For file:</b> {file.name}</p>
+                <p><b>Address:</b> {file.address}</p>
+                <br/>
+                <p>You could also scan QR and topup contract from any wallet</p>
+                
+                <div style={{ margin: "16px 0", display: "flex", justifyContent: "center" }}>
+                    <QRCode value={"ton://transfer/"+file.address+"?amount="+toNano(amount)} size={140} />
+                </div>
 
                 <label style={{ marginTop: 18, marginBottom: 6, display: "block", fontWeight: 500 }}>
                     Amount to send to contract (TON):

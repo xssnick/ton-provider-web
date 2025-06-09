@@ -55,7 +55,7 @@ func Listen(key ed25519.PrivateKey, addr, domain string, maxFileSz uint64, svc *
 	http.HandleFunc("/api/v1/provider", s.getProviderIdHandler)
 	http.HandleFunc("/api/v1/login", s.securityHandler(s.loginHandler, rateLimit))
 
-	http.HandleFunc("/api/v1/upload", s.securityHandler(s.authHandler(s.uploadHandler), rateLimitFiles))
+	http.HandleFunc("/api/v1/upload", s.securityHandler(s.authHandler(s.uploadHandler), rateLimit, rateLimitFiles))
 	http.HandleFunc("/api/v1/list", s.securityHandler(s.authHandler(s.listHandler), rateLimit))
 	http.HandleFunc("/api/v1/deploy", s.securityHandler(s.authHandler(s.getDeployDataHandler), rateLimit))
 	http.HandleFunc("/api/v1/withdraw", s.securityHandler(s.authHandler(s.getWithdrawDataHandler), rateLimit))
@@ -116,7 +116,7 @@ func (s *Server) loginHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]bool{"ok": true})
 }
 
-func (s *Server) securityHandler(next func(http.ResponseWriter, *http.Request), rateLimitStore limiter.Store) http.HandlerFunc {
+func (s *Server) securityHandler(next func(http.ResponseWriter, *http.Request), rateLimitStores ...limiter.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if origin := r.Header.Get("Origin"); origin != "" {
 			originURL, err := url.Parse(r.Header.Get("Origin"))
@@ -126,16 +126,18 @@ func (s *Server) securityHandler(next func(http.ResponseWriter, *http.Request), 
 			}
 		}
 
-		key, _, _ := strings.Cut(r.RemoteAddr, ":")
-		_, _, _, ok, err := rateLimitStore.Take(r.Context(), key)
-		if err != nil {
-			http.Error(w, "Rate error", http.StatusForbidden)
-			return
-		}
+		for _, rateLimitStore := range rateLimitStores {
+			key, _, _ := strings.Cut(r.RemoteAddr, ":")
+			_, _, _, ok, err := rateLimitStore.Take(r.Context(), key)
+			if err != nil {
+				http.Error(w, "Rate error", http.StatusForbidden)
+				return
+			}
 
-		if !ok {
-			http.Error(w, "Too many requests", http.StatusTooManyRequests)
-			return
+			if !ok {
+				http.Error(w, "Too many requests", http.StatusTooManyRequests)
+				return
+			}
 		}
 
 		next(w, r)
