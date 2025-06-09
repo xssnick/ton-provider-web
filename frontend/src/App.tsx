@@ -225,8 +225,15 @@ const App: React.FC = () => {
     };
 
     const updateFilesList = (async () => {
-        let list = await fetchFiles();
-        setFiles(()=> list);
+        try {
+            let list = await fetchFiles();
+            setFiles(()=> list);
+        } catch (error) {
+            if (error instanceof AuthError) {
+                console.log("Auth error");
+                await tonConnectUI.disconnect();
+            }
+        }
     })
 
     useEffect(() => {
@@ -461,15 +468,27 @@ async function fetchTonProofPayloadFromBackend(): Promise<any> {
     return (await response.json()).data;
 }
 
+class AuthError extends Error {
+    constructor(message?: string) {
+        super(message);
+        this.name = "AuthError";
+    }
+}
+
 async function fetchUserFiles(): Promise<any[]> {
     const response = await fetch(`/api/v1/list`, {
         method: "GET",
         headers: { "Content-Type": "application/json" },
     });
-    if (!response.ok)
+    if (!response.ok) {
+        if (response.status === 401) {
+            throw new AuthError("unauthorized");
+        }
         throw new Error(`Failed to fetch user files: ${response.status} ${response.statusText}`);
+    }
     return response.json();
 }
+
 
 export function uploadFileWithProgress(
     file: File,
