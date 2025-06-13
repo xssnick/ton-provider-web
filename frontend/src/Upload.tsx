@@ -1,7 +1,8 @@
-import React, {type DragEvent, useCallback, useEffect, useState} from "react";
+import React, {type DragEvent, type ReactElement, useCallback, useEffect, useState} from "react";
 import {UploadCloud} from "lucide-react";
 import QRCode from "react-qr-code";
 import {toNano} from "ton";
+import {ToSz} from "./FileTile.tsx";
 
 type UploadZoneProps = {
     drag: boolean;
@@ -95,11 +96,11 @@ export const FileUploadModal: React.FC<FileUploadModalProps> = ({
     }, [])
 
     return (
-        <div className="modal-overlay">
-            <div className="modal">
+        <Modal onCancel={onCancel} inner={
+            <>
                 <h2>Uploading file</h2>
                 <p><b>Name:</b> {file.name}</p>
-                <p><b>Size:</b> {(file.size / 1024).toFixed(1)} KB</p>
+                <p><b>Size:</b> {ToSz(file.size)}</p>
                     <div style={{ marginTop: 22 }}>
                         <div style={{ color: "#0098EA", fontWeight: 500 }}>
                             Uploading: {progress}%
@@ -113,9 +114,8 @@ export const FileUploadModal: React.FC<FileUploadModalProps> = ({
                         Cancel
                     </button>
                 </div>
-            </div>
-        </div>
-    );
+            </>
+        }/>)
 };
 
 interface DeployModalProps {
@@ -132,6 +132,7 @@ export interface FileDeployInfo {
     pricePerDay: string;
     pricePerProof: string;
     proofPeriodEvery: string;
+    proofPeriodEverySec: number;
 }
 
 export const DeployModal: React.FC<DeployModalProps> = ({
@@ -141,10 +142,29 @@ export const DeployModal: React.FC<DeployModalProps> = ({
                                                         }) => {
     const [amount, setAmount] = useState("0.5");
 
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        let { value } = e.target;
+
+        // This pattern allows digits before the dot, and up to 9 digits after the dot.
+        const match = value.match(/^(\d+)(\.(\d{0,9})?)?$/);
+
+        if (match) {
+            // If there is a decimal part longer than 9, truncate it.
+            const integerPart = match[1];
+            const decimalPart = match[3] || "";
+            value = decimalPart ? `${integerPart}.${decimalPart}` : integerPart;
+            setAmount(value);
+        } else if (value === "" || value === "-") {
+            // Allow deletion or a starting minus sign
+            setAmount(value);
+        }
+        // Otherwise, ignore the change if it doesn't match our expected number format.
+    };
+
     if (!filePriceInfo) {
         return (
-            <div className="modal-overlay">
-                <div className="modal">
+            <Modal onCancel={onCancel} inner={
+                <>
                     <h2>Requesting provider rates...</h2>
 
                     <div style={{marginTop: 28, textAlign: "center"}}>
@@ -171,20 +191,25 @@ export const DeployModal: React.FC<DeployModalProps> = ({
                             Cancel
                         </button>
                     </div>
-                </div>
-            </div>
-        );
+                </>
+            }/>)
     }
-    
+
+    let rewards = Math.floor(parseFloat(amount)/parseFloat(filePriceInfo.pricePerProof));
+    if (!rewards) rewards = 0;
+
+    let days = Math.floor(rewards*(filePriceInfo.proofPeriodEverySec/86400));
+
+    let disabled = !amount || parseFloat(amount) < 0.09;
     return (
-        <div className="modal-overlay">
-            <div className="modal">
+        <Modal onCancel={onCancel} inner={
+            <>
                 <h2>Deploy bag contract</h2>
                 
                 <p><b>Storage price per day:</b> {filePriceInfo.pricePerDay} TON</p>
                 <p><b>Price per reward:</b> {filePriceInfo.pricePerProof} TON</p>
                 <p><b>Provider will be rewarded every:</b> {filePriceInfo.proofPeriodEvery}</p>
-                <p><br/><b>Min amount is 0.09 TON</b></p>
+                <p><br/><b style={disabled ? { color: "#e24c4c"} : {}}>Min amount is 0.09 TON</b></p>
 
                 <label style={{ marginTop: 18, marginBottom: 6, display: "block", fontWeight: 500 }}>
                     Amount to send to contract (TON):
@@ -194,7 +219,7 @@ export const DeployModal: React.FC<DeployModalProps> = ({
                         step="any"
                         placeholder="Enter amount"
                         value={amount}
-                        onChange={e => setAmount(e.target.value)}
+                        onChange={handleChange}
                         style={{
                             marginTop: 8,
                             width: "100%",
@@ -206,14 +231,13 @@ export const DeployModal: React.FC<DeployModalProps> = ({
                         }}
                     />
                 </label>
-                <p><b>Enough for:</b> {Math.floor(parseFloat(amount)/parseFloat(filePriceInfo.pricePerProof))} Rewards</p>
-
+                <p><b>Enough for {days} Days</b> ({rewards} Rewards)</p>
 
                 <div className="modal-actions" style={{ marginTop: 28 }}>
                     <button
                         className="modal-btn"
                         onClick={() => onDeploy(amount, filePriceInfo.id)}
-                        disabled={!amount || parseFloat(amount) < 0.09}
+                        disabled={disabled}
                     >
                         Deploy
                     </button>
@@ -221,9 +245,8 @@ export const DeployModal: React.FC<DeployModalProps> = ({
                         Cancel
                     </button>
                 </div>
-            </div>
-        </div>
-    );
+            </>
+        }/>)
 };
 
 interface TopupModalProps {
@@ -242,13 +265,33 @@ export const TopupModal: React.FC<TopupModalProps> = ({
                                                           file,
                                                           onCancel,
                                                           onConfirm,
-                                                        }) => {
+                                                      }) => {
     const [amount, setAmount] = useState("0.5");
 
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        let { value } = e.target;
+
+        // This pattern allows digits before the dot, and up to 9 digits after the dot.
+        const match = value.match(/^(\d+)(\.(\d{0,9})?)?$/);
+
+        if (match) {
+            // If there is a decimal part longer than 9, truncate it.
+            const integerPart = match[1];
+            const decimalPart = match[3] || "";
+            value = decimalPart ? `${integerPart}.${decimalPart}` : integerPart;
+            setAmount(value);
+        } else if (value === "" || value === "-") {
+            // Allow deletion or a starting minus sign
+            setAmount(value);
+        }
+        // Otherwise, ignore the change if it doesn't match our expected number format.
+    };
+
     return (
-        <div className="modal-overlay">
-            <div className="modal">
+        <Modal onCancel={onCancel} inner={
+            <>
                 <h2>Topup contract</h2>
+                <p><b>Bag:</b> {file.id}</p>
                 <p><b>For file:</b> {file.name}</p>
                 <p><b>Address:</b> {file.address}</p>
                 <br/>
@@ -266,7 +309,7 @@ export const TopupModal: React.FC<TopupModalProps> = ({
                         step="any"
                         placeholder="Enter amount"
                         value={amount}
-                        onChange={e => setAmount(e.target.value)}
+                        onChange={handleChange}
                         style={{
                             marginTop: 8,
                             width: "100%",
@@ -291,6 +334,104 @@ export const TopupModal: React.FC<TopupModalProps> = ({
                         Cancel
                     </button>
                 </div>
+            </>
+        }/>)
+};
+
+export interface ErrorModalProps {
+    text: string;
+    onCancel: () => void;
+}
+
+export const ErrorModal: React.FC<ErrorModalProps> = ({
+                                                          text,
+                                                          onCancel
+                                                      }) => {
+
+    return (
+        <Modal onCancel={onCancel} inner={
+            <>
+                <h2>Error</h2>
+                <p><b>{text}</b></p>
+
+                <div className="modal-actions" style={{ marginTop: 28 }}>
+                    <button className="modal-btn-cancel" onClick={onCancel}>
+                        Cancel
+                    </button>
+                </div>
+            </>
+        }/>
+    );
+};
+
+export interface ConfirmData {
+    text: string;
+    onConfirm: () => void;
+}
+
+export interface ConfirmModalProps {
+    data: ConfirmData | null;
+    onClose: () => void;
+}
+
+export const ConfirmModal: React.FC<ConfirmModalProps> = ({
+                                                          data,
+                                                          onClose,
+                                                      }) => {
+    if (!data) return null;
+
+    return (
+        <Modal onCancel={onClose} inner={
+            <>
+                <h2>Confirm Action</h2>
+                <p><b>{data.text}</b></p>
+
+                <div className="modal-actions" style={{ marginTop: 28 }}>
+                    <button
+                        className="modal-btn"
+                        onClick={() => {onClose(); data.onConfirm();}}
+                    >
+                        Confirm
+                    </button>
+                    <button className="modal-btn-cancel" onClick={onClose}>
+                        Cancel
+                    </button>
+                </div>
+            </>
+        }/>
+    );
+};
+
+interface ModalProps {
+    inner: ReactElement;
+    onCancel: () => void;
+}
+
+export const Modal: React.FC<ModalProps> = ({
+                                                          inner,
+                                                          onCancel,
+                                                      }) => {
+
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === "Escape") {
+                onCancel();
+            }
+        };
+
+        window.addEventListener("keydown", handleKeyDown);
+
+        return () => {
+            window.removeEventListener("keydown", handleKeyDown);
+        };
+    }, []);
+
+    return (
+        <div className="modal-overlay" onClick={(e) => {
+            if (e.target === e.currentTarget) onCancel();
+        }}>
+            <div className="modal">
+                {inner}
             </div>
         </div>
     );

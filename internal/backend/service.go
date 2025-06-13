@@ -58,7 +58,7 @@ func NewService(db *db.Database, api ton.APIClientWrapped, provider *transport.C
 type UserFileInfo struct {
 	FileName  string    `json:"file_name"`
 	CreatedAt time.Time `json:"created_at"`
-	Size      string    `json:"size"`
+	Size      uint64    `json:"size"`
 	Status    string    `json:"status"`
 	BagID     string    `json:"bag_id"`
 
@@ -102,7 +102,7 @@ func (s *Service) ListFilesByUser(userAddr string) ([]UserFileInfo, error) {
 		}
 
 		if file.State >= db.FileStateBag {
-			userFile.Size = toSz(file.Bag.FullSize)
+			userFile.Size = file.Bag.FullSize
 			userFile.BagID = hex.EncodeToString(file.Bag.RootHash)
 		}
 
@@ -129,12 +129,13 @@ func (s *Service) ListFilesByUser(userAddr string) ([]UserFileInfo, error) {
 }
 
 type ContractDeployData struct {
-	ContractAddr string `json:"contract_addr"`
-	PerDay       string `json:"per_day"`
-	PerProof     string `json:"per_proof"`
-	ProofEvery   string `json:"proof_every"`
-	StateInit    []byte `json:"state_init"`
-	Body         []byte `json:"body"`
+	ContractAddr  string `json:"contract_addr"`
+	PerDay        string `json:"per_day"`
+	PerProof      string `json:"per_proof"`
+	ProofEvery    string `json:"proof_every"`
+	ProofEverySec uint32 `json:"proof_every_sec"`
+	StateInit     []byte `json:"state_init"`
+	Body          []byte `json:"body"`
 }
 
 type ContractWithdrawData struct {
@@ -207,12 +208,13 @@ func (s *Service) GetDeployData(ctx context.Context, userAddr, fileName string) 
 	}
 
 	return &ContractDeployData{
-		ContractAddr: addr.String(),
-		PerDay:       tlb.FromNanoTON(off.PerDayNano).String(),
-		PerProof:     tlb.FromNanoTON(off.PerProofNano).String(),
-		ProofEvery:   off.Every,
-		StateInit:    si.ToBOC(),
-		Body:         body.ToBOC(),
+		ContractAddr:  addr.String(),
+		PerDay:        tlb.FromNanoTON(off.PerDayNano).String(),
+		PerProof:      tlb.FromNanoTON(off.PerProofNano).String(),
+		ProofEvery:    off.Every,
+		ProofEverySec: off.Span,
+		StateInit:     si.ToBOC(),
+		Body:          body.ToBOC(),
 	}, nil
 }
 

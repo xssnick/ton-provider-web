@@ -80,7 +80,7 @@ export const FileTile: React.FC<FileTileProps> = ({
             )}
 
             <div className="file-tile__size">
-                {file.size}
+                {ToSz(file.size)}
             </div>
         </div>
     );
@@ -190,3 +190,16 @@ const StatusStored: React.FC<StatusStoredProps> = ({ file, onCopyBagId, handleWi
         </div>
     </div>
 );
+
+
+export const ToSz = (sz: number): string => {
+    if (sz < 1024) {
+        return `${sz} Bytes`;
+    } else if (sz < 1024 * 1024) {
+        return `${(sz / 1024).toFixed(2)} KB`;
+    } else if (sz < 1024 * 1024 * 1024) {
+        return `${(sz / (1024 * 1024)).toFixed(2)} MB`;
+    } else {
+        return `${(sz / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+    }
+};

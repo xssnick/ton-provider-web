@@ -26,11 +26,12 @@ import {
     type FileDeployInfo,
     UploadZone,
     type TopupFileInfo,
-    TopupModal
+    TopupModal, ErrorModal, ConfirmModal, type ConfirmData
 } from "./Upload.tsx";
 import { Buffer } from "buffer";
-import {type FileData, FileTile} from "./FileTile.tsx";
+import {type FileData, FileTile, ToSz} from "./FileTile.tsx";
 import {toNano} from "ton";
+import {Snackbar} from "./Snackbar.tsx";
 
 // @ts-ignore
 window.Buffer = Buffer;
@@ -109,6 +110,10 @@ const App: React.FC = () => {
     const [topupModalVisible, setTopupModalVisible] = useState(false);
     const [topupFile, setTopupFile] = useState<TopupFileInfo | null>(null);
 
+    const [errorModalText, setErrorModalText] = useState("");
+    const [snackbarMsg, setSnackbarMsg] = useState("");
+    const [confirmData, setConfirmData] = useState<ConfirmData | null>(null);
+
     const wallet = useTonWallet();
 
     const uploadCancelRef = useRef<() => void>(() => {});
@@ -118,11 +123,12 @@ const App: React.FC = () => {
 
         try {
             await deployContract(amount);
-        } catch {
+            setDeployModalVisible(false);
+        } catch (e) {
             setDeployingFiles((prev) => prev.filter((f) => f !== id));
+            setDeployModalVisible(false);
+            setErrorModalText(String(e));
         }
-
-        setDeployModalVisible(false);
     };
 
     const handleDeployCancel = () => {
@@ -185,7 +191,6 @@ const App: React.FC = () => {
         })();
     }, [tonConnectUI]);
 
-    // Загрузка файлов
     const fetchFiles = async (): Promise<FileData[]> => {
         let fetched = await fetchUserFiles();
         if (!loadingCompleted) {
@@ -224,21 +229,26 @@ const App: React.FC = () => {
         await tonConnectUI.sendTransaction(transaction);
     };
 
-    const updateFilesList = (async () => {
+    const updateFilesList = async () => {
         try {
-            let list = await fetchFiles();
-            setFiles(()=> list);
+            const list = await fetchFiles();
+            setFiles(() => list);
         } catch (error) {
             if (error instanceof AuthError) {
                 console.log("Auth error");
+                setSnackbarMsg("Auth has expired. Please, log in again");
                 await tonConnectUI.disconnect();
+            } else {
+                setSnackbarMsg("Failed to fetch files: "+error);
             }
         }
-    })
-
+    };
+    
     useEffect(() => {
         if (wallet) {
-            updateFilesList();
+            if (document.hasFocus() || (now / 1000)%7 < 1) {
+                updateFilesList();
+            }
         }
     }, [now, wallet]);
 
@@ -261,21 +271,31 @@ const App: React.FC = () => {
 
         setDeployModalVisible(true);
 
-        let params = await getDeployParams(id);
-        setDeployParams({
-            id: id,
-            address: params.contract_addr,
-            stateBoc: params.state_init,
-            bodyBoc: params.body,
-            pricePerDay: params.per_day,
-            pricePerProof: params.per_proof,
-            proofPeriodEvery: params.proof_every,
-        });
+        try {
+            let params = await getDeployParams(id);
+            setDeployParams({
+                id: id,
+                address: params.contract_addr,
+                stateBoc: params.state_init,
+                bodyBoc: params.body,
+                pricePerDay: params.per_day,
+                pricePerProof: params.per_proof,
+                proofPeriodEvery: params.proof_every,
+                proofPeriodEverySec: params.proof_every_sec,
+            });
+        } catch (e) {
+            setDeployModalVisible(false);
+            setErrorModalText(String(e));
+        }
     };
 
     const handleDelete = async (id: string) => {
-        await removeFile(id);
-        setFiles((prev) => prev.filter((f) => f.id !== id));
+        try {
+            await removeFile(id);
+            setFiles((prev) => prev.filter((f) => f.id !== id));
+        } catch (e) {
+            setErrorModalText(String(e));
+        }
     }
 
     const handleWithdraw = async (id: string) => {
@@ -297,10 +317,10 @@ const App: React.FC = () => {
         await tonConnectUI.sendTransaction(transaction);
     }
 
-    const handleTopupStart = async (id: string, addr: string) => {
+    const handleTopupStart = async (id: string, name: string, addr: string) => {
         setTopupFile({
             id: id,
-            name: id,
+            name: name,
             address: addr,
         });
         setTopupModalVisible(true);
@@ -373,7 +393,7 @@ const App: React.FC = () => {
                     }}
                     uploadFile={async (file, onProgress) => {
                         if (file.size > providerMaxSize) {
-                            alert("File is too big. Max size is "+(providerMaxSize/1024)+" KB");
+                            alert("File is too big. Max size is "+ToSz(providerMaxSize));
                             return;
                         }
 
@@ -397,6 +417,13 @@ const App: React.FC = () => {
                     file={topupFile!}
                     onCancel={handleTopupCancel}
                     onConfirm={handleTopup}
+                />
+            )}
+
+            {errorModalText && (
+                <ErrorModal
+                    text={errorModalText}
+                    onCancel={() => setErrorModalText("")}
                 />
             )}
 
@@ -429,13 +456,21 @@ const App: React.FC = () => {
                                 now={now}
                                 getFileIcon={getFileIcon}
                                 handleDeploy={() => handleDeploy(file.id)}
-                                handleDelete={() => handleDelete(file.id)}
+                                handleDelete={() => {
+                                    setConfirmData({
+                                        text: "Are you sure you want to delete this file?",
+                                        onConfirm: () => handleDelete(file.id),
+                                    });
+                                }}
                                 handleWithdraw={() => handleWithdraw(file.id)}
-                                handleTopup={() => handleTopupStart(file.id, file.contractAddr!)}
+                                handleTopup={() => handleTopupStart(file.bagId!, file.name, file.contractAddr!)}
                             />
                         ))}
                     </div>
                 )}
+
+            <ConfirmModal data={confirmData} onClose={() => setConfirmData(null)} />
+            <Snackbar message={snackbarMsg} onClose={() => setSnackbarMsg("")} />
         </div>
     );
 };
