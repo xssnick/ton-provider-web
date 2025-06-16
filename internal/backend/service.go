@@ -153,6 +153,10 @@ func (s *Service) GetWithdrawData(ctx context.Context, userAddr, fileName string
 		return nil, fmt.Errorf("failed to get file info: %w", err)
 	}
 
+	if fi == nil {
+		return nil, fmt.Errorf("file not found")
+	}
+
 	if fi.State != db.FileStateStored {
 		return nil, fmt.Errorf("contract not yet deployed")
 	}
