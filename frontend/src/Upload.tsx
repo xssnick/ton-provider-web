@@ -325,7 +325,7 @@ export const TopupModal: React.FC<TopupModalProps> = ({
                 <div className="modal-actions" style={{ marginTop: 28 }}>
                     <button
                         className="modal-btn"
-                        onClick={() => onConfirm(amount, file.id)}
+                        onClick={() => onConfirm(amount, file.name)}
                         disabled={!amount || parseFloat(amount) <= 0}
                     >
                         Topup
